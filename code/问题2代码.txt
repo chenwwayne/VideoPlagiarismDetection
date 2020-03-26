@@ -1,0 +1,44 @@
+%%Q2--代码：
+clc;
+%读取问题一模型提取的原视频关键帧
+boxImage = imread('D:/matlab/Video-Keyframe-Extraction-Using-RGB-Features-in-Matlab-master/keyframe/three/2283.jpg'); 
+%将RGB图像转化为灰度图
+boxImage = rgb2gray(boxImage);
+%读取待测视频
+obj = VideoReader('D:/matlab/Video-Keyframe-Extraction-Using-RGB-Features-in-Matlab-master/3-3.mpg');
+%遍历待测视频每帧，记录总帧数
+numFrames = obj.NumberOfFrames;
+numzeros= 4;
+nz = strcat('%0',num2str(numzeros),'d');
+%待测视频的逐帧预处理
+for k = 1:numFrames
+    sceneImage = read(obj,k);
+    sceneImage = rgb2gray(sceneImage);
+%提取SURF特征点
+    boxPoints = detectSURFFeatures(boxImage);
+    scenePoints = detectSURFFeatures(sceneImage);
+ %根据特征点生成图像的特征向量
+[boxFeatures, boxPoints] = extractFeatures(boxImage, boxPoints);
+[sceneFeatures, scenePoints] = extractFeatures(sceneImage, scenePoints);
+%初步建立一个匹配对，即粗匹配（含野值）
+boxPairs = matchFeatures(boxFeatures, sceneFeatures);
+matchedBoxPoints = boxPoints(boxPairs(:, 1), :);
+matchedScenePoints = scenePoints(boxPairs(:, 2), :);
+num1=length(matchedScenePoints);
+%预测仿射变化，去除不满足变化的野值
+if num1>3
+[tform, inlierBoxPoints, inlierScenePoints] = estimateGeometricTransform(matchedBoxPoints, matchedScenePoints, 'affine');
+num=length(inlierScenePoints);
+fprintf('第 %d 帧\n',k);
+%汉明距
+if num>50
+figure(2);
+showMatchedFeatures(boxImage, sceneImage, inlierBoxPoints, inlierScenePoints, 'montage');
+title('筛选-细匹配');
+figure(1);
+showMatchedFeatures(boxImage, sceneImage, matchedBoxPoints, matchedScenePoints, 'montage');
+title('粗匹配');
+fprintf('当前帧匹配点数：%d\n',num);
+end
+end
+end
